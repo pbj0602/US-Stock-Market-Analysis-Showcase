@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日股票分析报告 - {{ report_date }}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            padding-bottom: 40px;
+            margin-bottom: 50px;
+            position: relative;
+        }
+        .header h1 {
+            background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+            font-size: 3em;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .header p {
+            color: #86868b;
+            margin: 15px 0 0 0;
+            font-size: 1.1em;
+            font-weight: 400;
+        }
+        .refresh-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: rgba(0, 122, 255, 1);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+        }
+        .refresh-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0, 122, 255, 0.3);
+            background: rgba(0, 112, 235, 1);
+        }
+        .refresh-btn:active {
+            transform: scale(0.98);
+        }
+        .refresh-btn svg {
+            width: 18px;
+            height: 18px;
+            transition: transform 0.5s ease;
+        }
+        .refresh-btn:hover svg {
+            transform: rotate(180deg);
+        }
+        .refresh-btn.loading svg {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .refresh-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .refresh-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .refresh-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .refresh-status.loading {
+            background: #cce5ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        .section {
+            margin-bottom: 40px;
+            background: rgba(247, 247, 247, 0.6);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        .section:hover {
+            background: rgba(247, 247, 247, 0.9);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+        .section h2 {
+            /* Solid colour: a gradient text fill turns the leading emoji into
+               a coloured block. */
+            color: #3634a3;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.75em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        .section h3 {
+            color: #1d1d1f;
+            margin-bottom: 15px;
+            margin-top: 25px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        .analysis-text {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            margin: 15px 0;
+            line-height: 1.8;
+            white-space: pre-line;
+            color: #1d1d1f;
+            font-size: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 20px 0;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        th, td {
+            padding: 16px 18px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        th {
+            background: linear-gradient(135deg, #f5f5f7 0%, #e8e8ea 100%);
+            color: #1d1d1f;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        tbody tr {
+            transition: background-color 0.2s ease;
+        }
+        tbody tr:hover {
+            background-color: rgba(0, 122, 255, 0.03);
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .positive {
+            color: #34c759;
+            font-weight: 600;
+        }
+        .negative {
+            color: #ff3b30;
+            font-weight: 600;
+        }
+        .neutral {
+            color: #8e8e93;
+        }
+        .signal-buy {
+            background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+        }
+        .signal-sell {
+            background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
+        }
+        .signal-hold {
+            background: linear-gradient(135deg, #ff9500 0%, #ff9f0a 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
+        }
+        .signal-filtered_low_volume {
+            background: linear-gradient(135deg, #8e8e93 0%, #aeaeb2 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(142, 142, 147, 0.3);
+        }
+        .metric-card {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffffff 0%, #f9f9fb 100%);
+            padding: 24px 28px;
+            margin: 12px;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            min-width: 180px;
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        .metric-card h4 {
+            margin: 0 0 12px 0;
+            color: #86868b;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        .metric-card .value {
+            font-size: 2.2em;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            color: #86868b;
+            font-size: 0.9em;
+        }
+        .footer p {
+            margin: 8px 0;
+        }
+        .risk-high { border-color: rgba(255, 59, 48, 0.3); }
+        .risk-medium { border-color: rgba(255, 149, 0, 0.3); }
+        .risk-low { border-color: rgba(52, 199, 89, 0.3); }
+
+        /* Compact metric strip */
+        .metric-strip {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0;
+            background: rgba(0,0,0,0.025);
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        .metric-strip-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 16px;
+        }
+        .metric-strip-item:first-child { padding-left: 0; }
+        .metric-strip-item:last-child  { padding-right: 0; }
+        .metric-strip-label {
+            color: #86868b;
+            font-size: 0.85em;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .metric-strip-value {
+            font-weight: 700;
+            font-size: 1.05em;
+        }
+        .metric-strip-sep {
+            color: #d1d1d6;
+            font-size: 1.2em;
+            user-select: none;
+        }
+
+        /* Signal tabs */
+        .signal-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 20px 0 12px 0;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 7px 18px;
+            border-radius: 20px;
+            border: 1.5px solid #d1d1d6;
+            background: white;
+            color: #1d1d1f;
+            font-size: 0.9em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { border-color: #007aff; color: #007aff; }
+        .tab-btn.active { background: #007aff; border-color: #007aff; color: white; }
+        .tab-btn.buy.active   { background: #34c759; border-color: #34c759; }
+        .tab-btn.hold.active  { background: #ff9500; border-color: #ff9500; }
+        .tab-btn.sell.active  { background: #ff3b30; border-color: #ff3b30; }
+        .sector-select {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1.5px solid #d1d1d6;
+            background: white;
+            font-size: 0.88em;
+            color: #1d1d1f;
+            cursor: pointer;
+        }
+        .signal-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.82em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-buy  { background: rgba(52,199,89,0.12);  color: #1a8a3a; }
+        .badge-hold { background: rgba(255,149,0,0.12);  color: #c07000; }
+        .badge-sell { background: rgba(255,59,48,0.12);  color: #cc1a10; }
+        .badge-low  { background: rgba(142,142,147,0.12); color: #636366; }
+
+        /* Progress Bar Styles */
+        .progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            z-index: 9999;
+            display: none;
+            padding: 20px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .progress-overlay.active {
+            display: block;
+        }
+        .progress-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .progress-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d1d1f;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .progress-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 122, 255, 0.2);
+            border-top-color: #007aff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .progress-percentage {
+            font-size: 24px;
+            font-weight: 700;
+            color: #007aff;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 122, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007aff 0%, #5856d6 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 122, 255, 0.5);
+        }
+        .progress-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #86868b;
+            font-size: 14px;
+        }
+        .progress-step {
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        .progress-time {
+            font-size: 13px;
+        }
+
+        /* The h1 gradient uses transparent text fill, which turns the emoji
+           into a solid block — give the emoji its own fill back. */
+        .h1-emoji { -webkit-text-fill-color: initial; }
+
+        /* ── iPhone / narrow screens ─────────────────────────────────────
+           The report is read on a phone from the Telegram attachment. The
+           desktop layout (140px of side padding, 3em title, 10-column table)
+           overflowed the screen and crushed card tables to one character
+           per line. */
+        @media (max-width: 700px) {
+            body { padding: 0; font-size: 15px; }
+            .container {
+                padding: 14px 12px;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .header { padding-bottom: 14px; margin-bottom: 18px; }
+            .header h1 { font-size: 1.55em; }
+            .header p { font-size: 0.9em; margin-top: 6px; }
+            /* Refresh talks to a local server; useless off the Mac. */
+            .refresh-btn, .progress-overlay, .refresh-status { display: none !important; }
+            .section { padding: 16px 12px; margin-bottom: 16px; border-radius: 12px; }
+            .section h2 { font-size: 1.2em; }
+            /* Wide tables scroll sideways instead of stretching the page. */
+            table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 12px 0;
+            }
+            th, td { padding: 9px 10px; font-size: 0.88em; vertical-align: top; }
+            /* Free-text column: without a floor the table squeezes it to one
+               character wide and every row becomes screen-tall. */
+            td.reason-cell { min-width: 230px; }
+            th { font-size: 11px; white-space: nowrap; }
+            /* Inline-styled cards were sized for desktop. */
+            .container div[style*="padding:20px 28px"],
+            .container div[style*="padding:18px 24px"],
+            .container div[style*="padding:16px 20px"],
+            .container div[style*="padding:14px 22px"] { padding: 12px 14px !important; }
+            .container div[style*="flex:1 1 260px"] { flex-basis: 100% !important; }
+            .container div[style*="minmax(220px"],
+            .container div[style*="minmax(180px"] { grid-template-columns: 1fr !important; }
+            .metric-card { min-width: 0; margin: 6px; padding: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Progress Overlay -->
+    <div id="progress-overlay" class="progress-overlay">
+        <div class="progress-container">
+            <div class="progress-header">
+                <div class="progress-title">
+                    <div class="progress-spinner"></div>
+                    <span>Generating Report</span>
+                </div>
+                <div class="progress-percentage" id="progress-percentage">0%</div>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-details">
+                <div class="progress-step" id="progress-step">Initializing...</div>
+                <div class="progress-time" id="progress-time">Estimated: 7 minutes</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="refresh-status" class="refresh-status"></div>
+    <div class="container">
+        <div class="header">
+            <button id="refresh-btn" class="refresh-btn" onclick="refreshReport()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                </svg>
+                刷新报告
+            </button>
+            <h1><span class="h1-emoji">📈</span> 每日股票分析报告</h1>
+            <p>{{ report_date }} 生成于 {{ report_time }}</p>
+        </div>
+
+        <!-- 数据健康 — pre-publish cross-checks (modules/report_validator.py).
+             Critical issues suppress the affected conclusion below. -->
+        {% set _hl = model.get('health') or {} %}
+        {% set _mkt_bad = _hl.get('critical', []) | selectattr('area', 'equalto', '市场状态') | list %}
+        {% if _hl.get('status') and _hl.get('status') != 'ok' %}
+        {% set _hc = '#ff3b30' if _hl.get('status') == 'critical' else '#ff9500' %}
+        <div style="background:{{ _hc }}11; border:1.5px solid {{ _hc }}55; border-radius:14px; padding:14px 22px; margin-bottom:20px;">
+            <div style="font-weight:700; color:{{ _hc }}; margin-bottom:6px;">
+                {{ '🚨' if _hl.get('status') == 'critical' else '⚠️' }} 数据健康：{{ (_hl.get('critical', []) + _hl.get('warnings', [])) | length }} 项异常
+            </div>
+            <div style="font-size:0.88em; line-height:1.7; color:#1d1d1f;">
+                {% for i in _hl.get('critical', []) %}• <strong style="color:#ff3b30;">[严重]</strong> {{ i.area }}：{{ i.message }}<br>{% endfor %}
+                {% for i in _hl.get('warnings', []) %}• {{ i.area }}：{{ i.message }}<br>{% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 市场状态卡 — 置顶，快速决策参考 -->
+        {% set _mc_regime = market_context.get('market_regime', {}).get('regime', '') %}
+        {% set _mc_vix = market_context.get('vix_analysis', {}).get('current') %}
+        {% set _mc_vix_regime = market_context.get('vix_analysis', {}).get('regime', '') %}
+        {% set _mc_rec = market_context.get('trading_recommendation', {}).get('recommendation', '') %}
+        {% set _mc_score = market_context.get('trading_recommendation', {}).get('market_score') %}
+        {% set _regime_color = '#34c759' if _mc_regime == 'BULL' else ('#ff3b30' if _mc_regime == 'BEAR' else '#ff9500') %}
+        {% set _regime_zh = {'BULL': '牛市', 'BEAR': '熊市', 'SIDEWAYS': '震荡'}.get(_mc_regime, _mc_regime) %}
+        {% set _rec_zh_map = {'FULL_DEPLOYMENT': '积极建仓', 'MODERATE_LONG': '适度做多', 'CAUTIOUS': '谨慎操作', 'REDUCE_EXPOSURE': '减仓规避', 'AVOID': '暂停交易', 'DEFENSIVE': '防御为主', 'HOLD': '持仓观望', 'NEUTRAL': '中性'} %}
+        {% set _rec_zh_label = _rec_zh_map.get(_mc_rec, _mc_rec) %}
+        {% set _vix_zh = {'Low': '低波动', 'Normal': '正常', 'Elevated': '偏高', 'High': '高波动', 'Extreme': '极端恐慌'}.get(_mc_vix_regime, _mc_vix_regime) %}
+        {% set _risk_color = '#ff3b30' if _mc_rec in ('AVOID', 'REDUCE_EXPOSURE') or (_mc_vix and _mc_vix > 25) else ('#ff9500' if _mc_rec in ('CAUTIOUS', 'DEFENSIVE') or (_mc_vix and _mc_vix > 18) else '#34c759') %}
+        {% set _risk_label = '⚠️ 高风险' if _mc_rec in ('AVOID', 'REDUCE_EXPOSURE') or (_mc_vix and _mc_vix > 25) else ('🟡 中等风险' if _mc_rec in ('CAUTIOUS', 'DEFENSIVE') or (_mc_vix and _mc_vix > 18) else '🟢 正常') %}
+        <div style="background:linear-gradient(135deg,rgba(255,255,255,0.98) 0%,rgba(247,247,247,0.98) 100%); border-radius:16px; padding:20px 28px; margin-bottom:24px; border:1.5px solid {{ _regime_color }}33; box-shadow:0 4px 16px {{ _regime_color }}18;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+                <div style="font-size:1.05em; font-weight:700; color:{{ _regime_color }};">
+                    {% if _mkt_bad %}⚠️ 市场状态数据异常，今日不可信{% else %}{{ {'BULL':'🟢','BEAR':'🔴','SIDEWAYS':'🟡'}.get(_mc_regime,'⚪') }} 当前市场：{{ _regime_zh }}{% endif %}
+                </div>
+                {# Risk tier and recommendation wording come from the shared
+                   model so WeChat cannot label the same day differently. #}
+                <div style="background:{{ _risk_color }}22; border:1px solid {{ _risk_color }}44; border-radius:8px; padding:3px 12px; font-size:0.82em; font-weight:600; color:{{ _risk_color }};">{{ model.get('risk_label', _risk_label) }}</div>
+                <div style="background:#8e8e9322; border:1px solid #8e8e9344; border-radius:8px; padding:3px 12px; font-size:0.82em; font-weight:600; color:#48484a;">主导因素：{{ model.get('dominant_factor', '') }}</div>
+                <div style="background:#007aff22; border:1px solid #007aff44; border-radius:8px; padding:3px 12px; font-size:0.82em; font-weight:600; color:#007aff;">操作建议：{{ model.get('recommendation_zh') or _rec_zh_label }}</div>
+                {% if _mc_vix %}<div style="color:#86868b; font-size:0.85em;">VIX {{ "%.1f"|format(_mc_vix) }}（{{ _vix_zh }}）</div>{% endif %}
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;">
+                <div style="font-size:0.85em; color:#1d1d1f;"><span style="color:#86868b;">今日信号</span> <strong>🟢{{ signal_summary.buy_count or 0 }}入场</strong> · 🟡{{ signal_summary.hold_count or 0 }}观望 · 🔴{{ signal_summary.sell_count or 0 }}规避</div>
+                {% if market_summary %}<div style="font-size:0.85em; color:#1d1d1f;"><span style="color:#86868b;">均涨跌</span> <strong class="{% if market_summary.avg_change > 0 %}positive{% elif market_summary.avg_change < 0 %}negative{% endif %}">{{ "%+.2f"|format(market_summary.avg_change) }}%</strong>（覆盖{{ market_summary.total_symbols }}支）</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- TL;DR Banner — 3-line summary, from the shared report model so the
+             WeChat push says exactly the same thing. -->
+        {% set _tldr = model.get('tldr', {}) %}
+        {% if _tldr %}
+        <div style="background:linear-gradient(135deg,rgba(0,122,255,0.07),rgba(88,86,214,0.07)); border:1px solid rgba(0,122,255,0.2); border-radius:14px; padding:18px 24px; margin-bottom:24px;">
+            <div style="font-size:0.75em; font-weight:700; color:#007aff; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:10px;">TL;DR — 今日三句话</div>
+            <div style="display:grid; gap:8px;">
+                <div style="font-size:1em; font-weight:600; color:#1d1d1f;">{{ _tldr.get('headline', '') }}</div>
+                <div style="font-size:0.9em; color:#3c3c43;">🎯 最优先动作：{{ _tldr.get('top_action', '') }}</div>
+                <div style="font-size:0.9em; color:#3c3c43;">{{ _tldr.get('risk_line', '') }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ══ 核心+卫星 策略状态 ══════════════════════════════════════════
+             Sits at the very top because it is the strategy; everything below
+             is only how it gets executed. An unfunded core is the single most
+             important fact on the page. -->
+        {% set _st = model.get('strategy') or {} %}
+        {% if _st.get('core_target_val') %}
+        <div class="section" style="border-left:4px solid #5856d6; background:rgba(88,86,214,0.04);">
+            <h2>🧭 策略执行状态（核心 + 卫星）</h2>
+
+            <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:16px;">
+                <!-- CORE -->
+                <div style="flex:1 1 260px; background:white; border:1.5px solid {{ '#34c759' if _st.get('core_funded') else '#ff9500' }}55; border-radius:12px; padding:16px 20px;">
+                    <div style="font-weight:700; color:{{ '#34c759' if _st.get('core_funded') else '#ff9500' }}; margin-bottom:8px;">
+                        {{ '✅' if _st.get('core_funded') else '🎯' }} 核心仓 {{ "%.0f"|format(_st.get('core_target_pct', 75)) }}%
+                        （{{ _st.get('core_symbols', []) | join(' / ') }}）
+                    </div>
+                    <table style="margin:0;">
+                        <tbody>
+                            <tr><td style="width:110px; color:#86868b;">目标金额</td>
+                                <td><strong>${{ "{:,.0f}".format(_st.get('core_target_val') or 0) }}</strong></td></tr>
+                            {% if _st.get('core_actual_pct') is not none %}
+                            <tr><td style="color:#86868b;">真实账户</td>
+                                <td>{{ "%.1f"|format(_st.get('core_actual_pct') or 0) }}%
+                                    {{ '✓已达标' if _st.get('core_on_target') else '（待补足）' }}</td></tr>
+                            {% else %}
+                            <tr><td style="color:#86868b;">真实账户</td>
+                                <td style="color:#ff9500;"><strong>尚未建仓</strong>（100%现金）</td></tr>
+                            {% endif %}
+                            {% if _st.get('core_paper_pct') is not none and not _st.get('core_funded') %}
+                            <tr><td style="color:#86868b;">纸面账户</td>
+                                <td style="color:#86868b;">已达 {{ "%.1f"|format(_st.get('core_paper_pct')) }}%（仅模拟）</td></tr>
+                            {% endif %}
+                            <tr><td style="color:#86868b;">卖出规则</td>
+                                <td style="color:#34c759;"><strong>永不因信号卖出</strong>，只在回调时加仓</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- SATELLITE -->
+                {% set _skilled = _st.get('sat_killed') %}
+                {% set _stone = '#ff3b30' if _skilled else ('#ff9500' if _st.get('sat_blocked') else '#34c759') %}
+                <div style="flex:1 1 260px; background:white; border:1.5px solid {{ _stone }}55; border-radius:12px; padding:16px 20px;">
+                    <div style="font-weight:700; color:{{ _stone }}; margin-bottom:8px;">
+                        {{ '🛑' if _skilled else ('⏸' if _st.get('sat_blocked') else '🛰') }}
+                        卫星仓 {{ "%.0f"|format(_st.get('sat_target_pct', 25)) }}%（最多{{ _st.get('sat_max_positions', 2) }}只）
+                        {% if _st.get('sat_paper_only') %}<span style="font-size:0.78em; background:#ff950022; color:#ff9500; border-radius:6px; padding:2px 8px; margin-left:6px;">纸面验证中</span>{% endif %}
+                    </div>
+                    <table style="margin:0;">
+                        <tbody>
+                            <tr><td style="width:110px; color:#86868b;">每笔风险</td>
+                                <td><strong>${{ "{:,.0f}".format(_st.get('risk_per_trade') or 0) }}</strong>
+                                    （{{ "%.0f"|format(_st.get('risk_pct', 1)) }}%账户）— 股数=风险÷(买价−止损)</td></tr>
+                            <tr><td style="color:#86868b;">当前持仓</td>
+                                <td>{{ _st.get('sat_open', 0) }} / {{ _st.get('sat_max_positions', 2) }}</td></tr>
+                            <tr><td style="color:#86868b;">验证进度</td>
+                                <td>{{ _st.get('sat_trades_done', 0) }} 笔已完成，还需 {{ _st.get('sat_trades_need', 20) }} 笔
+                                    {% if _st.get('sat_alpha_pct') is not none %}
+                                    ｜超额收益（含浮盈） <strong style="color:{{ '#34c759' if (_st.get('sat_alpha_pct') or 0) > 0 else '#ff3b30' }};">{{ "%+.2f"|format(_st.get('sat_alpha_pct')) }}%</strong>
+                                    {% endif %}</td></tr>
+                        </tbody>
+                    </table>
+                    {% if _st.get('sat_kill_reason') %}
+                    <div style="margin-top:10px; padding:10px 14px; background:#ff3b3011; border-radius:8px; font-size:0.88em; color:#1d1d1f;">
+                        <strong style="color:#ff3b30;">熔断原因：</strong>{{ _st.get('sat_kill_reason') }}
+                    </div>
+                    {% elif _st.get('sat_block_reason') %}
+                    <div style="margin-top:10px; padding:10px 14px; background:#ff950011; border-radius:8px; font-size:0.88em; color:#1d1d1f;">
+                        <strong style="color:#ff9500;">今日暂停开新仓：</strong>{{ _st.get('sat_block_reason') }}（核心仓不受影响）
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Monthly scorecard: the sleeve is judged on this table, not on
+                 any single trade. Empty until the first satellite trade closes. -->
+            {% set _mo = model.get('satellite_monthly') or [] %}
+            {% if _mo %}
+            <h3 style="margin-top:24px; margin-bottom:6px;">📊 卫星仓逐月记分</h3>
+            <p style="font-size:0.85em; color:#86868b; margin-top:0;">
+                衡量标准只有一个：用同样的钱直接买 {{ _st.get('benchmark', 'SPY') }}，是不是更好？
+            </p>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead><tr><th>月份</th><th>笔数</th><th>盈亏</th><th>回报</th><th>胜率</th></tr></thead>
+                <tbody>
+                {% for m in _mo %}
+                    <tr>
+                        <td>{{ m.month }}</td>
+                        <td>{{ m.trades }}</td>
+                        <td class="{{ 'positive' if m.pnl >= 0 else 'negative' }}">
+                            {{ '+' if m.pnl >= 0 else '-' }}${{ "{:,.2f}".format(m.pnl|abs) }}</td>
+                        <td>{% if m.return_pct is not none %}{{ "%+.2f"|format(m.return_pct) }}%{% else %}—{% endif %}</td>
+                        <td>{% if m.win_rate_pct is not none %}{{ "%.0f"|format(m.win_rate_pct) }}%{% else %}—{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
+
+            <!-- Watchlist: Path A's entire remaining output. Explicitly NOT
+                 buy ideas — "cheap and maybe bottoming" is the exact thesis
+                 that produced all seven losing trades. -->
+            {% set _wl = model.get('watchlist') or [] %}
+            {% if _wl %}
+            <h3 style="margin-top:26px; margin-bottom:6px;">👀 观察名单（<span style="color:#ff3b30;">不建仓</span>）</h3>
+            <p style="font-size:0.85em; color:#86868b; margin-top:0;">
+                只列企稳 ≥3/4 的「便宜」股，不是买入建议；转强（站上 SMA50/SMA200 且跑赢 {{ _st.get('benchmark', 'SPY') }}）后才会进入买入信号。
+            </p>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead><tr><th>股票</th><th>现价</th><th>距52周低</th><th>RSI</th><th>企稳</th><th>尚不可买的原因</th></tr></thead>
+                <tbody>
+                {% for w in _wl %}
+                    <tr>
+                        <td><strong>{{ w.symbol }}</strong>{% if w.ready %} <span style="color:#34c759;">●转强</span>{% endif %}</td>
+                        <td>{% if w.price %}${{ "%.2f"|format(w.price) }}{% else %}—{% endif %}</td>
+                        <td>{{ "%.1f"|format(w.dist_from_low_pct or 0) }}%</td>
+                        <td>{% if w.rsi %}{{ "%.0f"|format(w.rsi) }}{% else %}—{% endif %}</td>
+                        <td>{{ w.stabilizing or 0 }}/4</td>
+                        <td style="font-size:0.88em; color:#86868b;">{{ w.blocker or w.turn_condition or '—' }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 今日持仓操作 — the system's only time-critical output: what to SELL
+             out of what the user actually owns. Sits above every buy idea. -->
+        {% set _pa = position_advice or {} %}
+        {% set _exits = _pa.get('exits', []) %}
+        {% set _trims = _pa.get('trims', []) %}
+        {% set _advices = _pa.get('advices', []) %}
+        {% if _exits or _trims %}
+        <div class="section" style="border-left: 4px solid #ff3b30; background:rgba(255,59,48,0.03);">
+            <h2>🚨 今日持仓操作（需执行）</h2>
+            <p style="color:#86868b; font-size:0.85em; margin-top:-6px;">
+                针对你在 data/portfolio.csv 的真实持仓。止损位锚定成本价或近端支撑，只上移不下调。
+            </p>
+            {% for a in _exits + _trims %}
+            {% set _tone = '#ff3b30' if a.action == 'EXIT' else '#ff9500' %}
+            <div style="background:white; border:1.5px solid {{ _tone }}55; border-radius:12px; padding:16px 20px; margin-top:14px;">
+                <div style="font-size:1.05em; font-weight:700; color:{{ _tone }}; margin-bottom:10px;">
+                    {{ a.action_zh }} {{ a.symbol }}
+                </div>
+                <table style="margin:0;">
+                    <tbody>
+                        <tr><td style="width:130px; color:#86868b;">现价</td><td><strong>{% if a.price is not none %}${{ "%.2f"|format(a.price) }}{% else %}—{% endif %}</strong></td></tr>
+                        {% if a.cost is not none %}<tr><td style="color:#86868b;">成本价</td><td>${{ "%.2f"|format(a.cost) }}</td></tr>{% endif %}
+                        <tr><td style="color:#86868b;">浮动盈亏</td>
+                            <td class="{% if a.pnl_pct > 0 %}positive{% elif a.pnl_pct < 0 %}negative{% endif %}"><strong>{{ "%+.2f"|format(a.pnl_pct) }}%</strong></td></tr>
+                        {% if a.stop is not none %}<tr><td style="color:#86868b;">止损位</td><td>${{ "%.2f"|format(a.stop) }}<span style="color:#86868b; font-size:0.85em;">（{{ a.stop_basis_zh }}）</span></td></tr>{% endif %}
+                        <tr><td style="color:#86868b;">仓位占比</td><td>{{ "%.1f"|format(a.weight) }}%</td></tr>
+                        {% if a.exit_value is not none %}<tr><td style="color:#86868b;">涉及金额</td><td>${{ "{:,.0f}".format(a.exit_value) }}</td></tr>{% endif %}
+                        <tr><td style="color:#86868b;">持有天数</td><td>{{ a.held_days }} 天</td></tr>
+                    </tbody>
+                </table>
+                <div style="margin-top:12px; padding:10px 14px; background:{{ _tone }}11; border-radius:8px; font-size:0.9em; line-height:1.7; color:#1d1d1f;">
+                    <strong style="color:{{ _tone }};">触发原因：</strong>{{ a.reason_text }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% elif _advices %}
+        <div class="section" style="border-left: 4px solid #34c759;">
+            <h2>✅ 持仓操作</h2>
+            <p style="font-size:0.92em; color:#1d1d1f;">
+                {{ _advices | length }} 个持仓均未触发退出条件，继续持有。各自止损位见下方「持仓明细」。
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Today's Overview -->
+        <div class="section">
+            <h2>📊 今日概览</h2>
+
+            {% set _exec_sum = ai_analysis.get('executive_summary', '') %}
+            {% if _exec_sum %}
+            <div style="font-size:0.95em; color:#1d1d1f; white-space:pre-line; line-height:1.8; padding:12px 16px; background:rgba(88,86,214,0.06); border-radius:10px; border-left:3px solid #5856d6;">{{ _exec_sum }}</div>
+            {% endif %}
+        </div>
+
+        <!-- 重大事件影响 -->
+        {% set _ei = ai_analysis.get('event_impact', {}) %}
+        {% if _ei and _ei.get('has_events') and _ei.get('impact_text') %}
+        <div class="section" style="border-left: 4px solid #ff9500;">
+            <h2>🌐 重大事件影响</h2>
+            <div class="analysis-text" style="white-space: pre-line; font-size: 0.92em; line-height: 1.75;">{{ _ei.get('impact_text', '') }}</div>
+        </div>
+        {% endif %}
+
+        <!-- 今日行动清单 — items come from the shared report model; the WeChat
+             push renders the identical four lists. -->
+        {% set _cl = model.get('checklist', {}) %}
+        <div class="section" style="border-left: 4px solid #34c759;">
+            <h2>🎯 今日行动清单</h2>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:8px;">
+                {% for _title, _items, _color, _bg in [
+                    ('✅ 可以做',       _cl.get('do', []),       '#34c759', 'rgba(52,199,89,0.06)'),
+                    ('❌ 不建议',       _cl.get('dont', []),     '#ff3b30', 'rgba(255,59,48,0.05)'),
+                    ('⚠️ 今日重点关注', _cl.get('watch', []),    '#ff9500', 'rgba(255,149,0,0.06)'),
+                    ('📅 明日关注',     _cl.get('tomorrow', []), '#5856d6', 'rgba(88,86,214,0.05)')
+                ] %}
+                {% if _items %}
+                <div style="background:{{ _bg }}; border:1px solid {{ _color }}44; border-radius:12px; padding:16px;">
+                    <div style="font-size:0.8em; font-weight:700; color:{{ _color }}; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">{{ _title }}</div>
+                    <div style="font-size:0.9em; line-height:1.7; color:#1d1d1f;">
+                        {% for item in _items %}• {{ item }}<br>{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Sector table. Moves are for the last completed session — the
+             report runs before the open, so there is no "today" yet. -->
+        {% set _sector_rows = model.get('sector_table', []) %}
+        {% if _sector_rows %}
+        <div class="section" style="border-left: 4px solid #5856d6;">
+            <h2>🏭 板块速览</h2>
+            <table>
+                <thead>
+                    <tr><th>板块</th><th>上一交易日</th><th>近5日</th><th>RSI</th><th>强度</th><th>状态</th></tr>
+                </thead>
+                <tbody>
+                    {% for sec in _sector_rows %}
+                    <tr>
+                        <td><strong>{{ sec.name_zh }}</strong></td>
+                        <td class="{% if sec.day_return > 0 %}positive{% elif sec.day_return < 0 %}negative{% endif %}">{{ "%+.2f"|format(sec.day_return) }}%</td>
+                        <td class="{% if sec.week_return > 0 %}positive{% elif sec.week_return < 0 %}negative{% endif %}">{{ "%+.2f"|format(sec.week_return) }}%</td>
+                        <td>{{ "%.0f"|format(sec.rsi) }}</td>
+                        <td>{{ "%+.1f"|format(sec.score) }}</td>
+                        <td>{{ sec.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Portfolio Analysis (always visible) -->
+        <div class="section">
+            <h2>
+                💼 持仓分析
+                <span style="font-size:0.5em; font-weight:500; color:#34c759; background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); border-radius:6px; padding:3px 10px; margin-left:10px; vertical-align:middle;">真实持仓</span>
+            </h2>
+
+            {% if portfolio_snapshot.empty %}
+            <!-- Flat account. This used to read "暂无持仓 / 请录入您的持仓",
+                 which describes an unconfigured system rather than one whose
+                 last position was closed — and it hid the cumulative P&L that
+                 the round-trip left behind. Show the real number instead. -->
+            {% set _acct = (model or {}).get('account') or {} %}
+            {% if _acct.get('known') %}
+            {% set _apnl = _acct.get('pnl') or 0 %}
+            {% set _atone = '#34c759' if _apnl > 0 else ('#ff3b30' if _apnl < 0 else '#86868b') %}
+            <div style="border:1.5px solid {{ _atone }}55; background:{{ _atone }}0d; border-radius:12px; padding:20px 24px; margin:20px 0;">
+                <p style="font-size:1.15em; font-weight:600; margin:0 0 4px;">💵 当前空仓（100% 现金）</p>
+                <p style="color:#86868b; font-size:0.88em; margin:0 0 16px;">
+                    已无真实持仓，无需执行任何卖出操作。下方「入场机会」是新建仓的候选。
+                </p>
+                <table style="margin:0;">
+                    <tbody>
+                        <tr><td style="width:150px; color:#86868b;">账户现金</td>
+                            <td><strong>${{ "{:,.2f}".format(_acct.get('cash') or 0) }}</strong></td></tr>
+                        <tr><td style="color:#86868b;">初始本金</td>
+                            <td>${{ "{:,.2f}".format(_acct.get('initial') or 0) }}</td></tr>
+                        <tr><td style="color:#86868b;">累计盈亏</td>
+                            <td style="color:{{ _atone }};"><strong>{{ '+' if _apnl >= 0 else '-' }}${{ "{:,.2f}".format(_apnl|abs) }}（{{ "%+.2f"|format(_acct.get('pnl_pct') or 0) }}%）</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="text-align:center; padding: 40px 20px; color: #86868b;
+                        border: 2px dashed #d1d1d6; border-radius: 12px; margin: 20px 0;">
+                <p style="font-size: 1.2em; font-weight: 500; margin-bottom: 8px;">暂无持仓</p>
+                <p>请在 <code>data/portfolio.csv</code> 中录入您的持仓，此处将自动显示专属分析。</p>
+                <p style="font-size: 0.85em; margin-top: 12px; color: #aeaeb2;">
+                    格式示例：Symbol, Shares, Purchase_Price, Purchase_Date<br>
+                    AAPL, 10, 185.50, 2025-12-01
+                </p>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="analysis-text">
+                {{ ai_analysis.get('portfolio_analysis', '投资组合分析暂不可用') }}
+            </div>
+
+            {% if portfolio_summary %}
+            <div style="text-align: center; margin: 20px 0;">
+                <div class="metric-card">
+                    <h4>总价值</h4>
+                    <p class="value">${{ "{:,.0f}".format(portfolio_summary.total_value) }}</p>
+                </div>
+                <div class="metric-card">
+                    <h4>总回报</h4>
+                    <p class="value {% if portfolio_summary.total_return_pct > 0 %}positive{% elif portfolio_summary.total_return_pct < 0 %}negative{% else %}neutral{% endif %}">
+                        {{ "%.2f"|format(portfolio_summary.total_return_pct) }}%
+                    </p>
+                </div>
+                <div class="metric-card">
+                    <h4>今日盈亏</h4>
+                    <p class="value {% if portfolio_summary.daily_pnl > 0 %}positive{% elif portfolio_summary.daily_pnl < 0 %}negative{% else %}neutral{% endif %}">
+                        ${{ "{:,.0f}".format(portfolio_summary.daily_pnl) }}
+                    </p>
+                </div>
+                <div class="metric-card">
+                    <h4>持仓数</h4>
+                    <p class="value">{{ portfolio_summary.num_positions }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <h3>持仓明细</h3>
+            {# Stop prices are the advisor's ratcheting levels, not a rolling
+               percentage off today's price. #}
+            {% set _adv_map = {} %}
+            {% for a in (position_advice or {}).get('advices', []) %}{% set _ = _adv_map.update({a.symbol: a}) %}{% endfor %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>股数</th>
+                        <th>当前价格</th>
+                        <th>持仓价值</th>
+                        <th>未实现盈亏</th>
+                        <th>权重</th>
+                        <th>日涨跌</th>
+                        <th>止损位</th>
+                        <th>建议</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for _, row in portfolio_snapshot.iterrows() %}
+                    {% set _a = _adv_map.get(row.Symbol, {}) %}
+                    <tr>
+                        <td><strong>{{ row.Symbol }}</strong></td>
+                        <td>{{ row.Shares }}</td>
+                        <td>${{ "%.2f"|format(row.Current_Price) }}</td>
+                        <td>${{ "{:,.0f}".format(row.Position_Value) }}</td>
+                        <td class="{% if row.Unrealized_PnL > 0 %}positive{% elif row.Unrealized_PnL < 0 %}negative{% else %}neutral{% endif %}">
+                            ${{ "{:,.0f}".format(row.Unrealized_PnL) }} ({{ "%.1f"|format(row.Unrealized_PnL_Pct) }}%)
+                        </td>
+                        <td>{{ "%.1f"|format(row.Weight) }}%</td>
+                        <td class="{% if (row.get('Day_Change_Pct', row.get('Price_Change_Pct', 0))) > 0 %}positive{% elif (row.get('Day_Change_Pct', row.get('Price_Change_Pct', 0))) < 0 %}negative{% else %}neutral{% endif %}">
+                            {{ "%+.2f"|format(row.get('Day_Change_Pct', row.get('Price_Change_Pct', 0))) }}%
+                        </td>
+                        <td>{% if _a.get('stop') is not none %}${{ "%.2f"|format(_a.stop) }}{% if _a.get('stop_room_pct') is not none %}<span style="color:#86868b; font-size:0.85em;"> (-{{ "%.1f"|format(_a.stop_room_pct) }}%)</span>{% endif %}{% else %}—{% endif %}</td>
+                        <td>{{ _a.get('action_zh', '—') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Held-stock signal summary -->
+            {% if not signals.empty %}
+            {% set held_tickers = portfolio_snapshot['Symbol'].tolist() %}
+            <h3 style="margin-top: 32px;">持仓信号速览</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>股票</th>
+                        <th>信号</th>
+                        <th>综合评分</th>
+                        <th>当前价</th>
+                        <th>RSI</th>
+                        <th>目标价</th>
+                        <th>止损价</th>
+                        <th>要点</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set _zh_signal = {'BUY': '买入', 'SELL': '卖出', 'HOLD': '持有', 'FILTERED_LOW_VOLUME': '低量持有'} %}
+                    {% for _, row in signals.iterrows() %}
+                    {% if row.Symbol in held_tickers %}
+                    {% set sig = row.get('Signal', '') %}
+                    <tr>
+                        <td><strong>{{ row.Symbol }}</strong></td>
+                        <td class="{% if sig == 'BUY' %}positive{% elif sig == 'SELL' %}negative{% else %}neutral{% endif %}">
+                            {{ _zh_signal.get(sig, sig) }}
+                        </td>
+                        <td>{{ "%.3f"|format(row.get('Adjusted_Score', row.get('Composite_Score', 0))) }}</td>
+                        <td>${{ "%.2f"|format(row.get('Current_Price', 0)) }}</td>
+                        <td>{{ "%.1f"|format(row.get('RSI', 0)) }}</td>
+                        <td>{% set tp = row.get('Target_Price') %}{% if tp is not none and tp != 'N/A' %}${{ "%.2f"|format(tp) }}{% else %}—{% endif %}</td>
+                        <td>{% set sl = row.get('Stop_Loss') %}{% if sl is not none %}${{ "%.2f"|format(sl) }}{% else %}—{% endif %}</td>
+                        <td class="reason-cell" style="font-size:0.85em; max-width:260px;">{{ (row.get('Reasoning', '') or '')[:120] }}{% if (row.get('Reasoning', '') or '') | length > 120 %}…{% endif %}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Watchlist Signals -->
+        <div class="section">
+            <h2>📡 Watchlist 信号</h2>
+            <div class="analysis-text">
+                {{ ai_analysis.get('stock_recommendations', '') }}
+            </div>
+
+            {% if not signals.empty %}
+            {% set held_set = portfolio_snapshot['Symbol'].tolist() if not portfolio_snapshot.empty else [] %}
+
+            {# Build watchlist rows: exclude held tickers, extract sector name #}
+            {% set _label = {'BUY': '入场机会', 'SELL': '规避', 'HOLD': '观望', 'FILTERED_LOW_VOLUME': '低量观望'} %}
+            {% set _badge = {'BUY': 'buy', 'SELL': 'sell', 'HOLD': 'hold', 'FILTERED_LOW_VOLUME': 'low'} %}
+            {% set _tab   = {'BUY': 'buy', 'SELL': 'sell', 'HOLD': 'hold', 'FILTERED_LOW_VOLUME': 'hold'} %}
+
+            {# BUY and 规避 rows in full; only the 5 highest-scored 观望 rows —
+               the other ~40 HOLDs each said "doesn't meet the criteria". #}
+            {% set ns = namespace(holds=0) %}
+            <table id="signalTable">
+                <thead>
+                    <tr>
+                        <th>股票</th>
+                        <th>信号</th>
+                        <th>评分</th>
+                        <th>价格</th>
+                        <th>RSI</th>
+                        <th>目标价 / 阻力</th>
+                        <th>止损 / 支撑</th>
+                        <th>R/R</th>
+                        <th>行业</th>
+                        <th>要点</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for _, row in signals.iterrows() %}
+                    {% set sig = row.Signal %}
+                    {% set _is_hold = sig not in ('BUY', 'SELL', 'AVOID') %}
+                    {% if row.Symbol not in held_set and (not _is_hold or ns.holds < 5) %}
+                    {% if _is_hold %}{% set ns.holds = ns.holds + 1 %}{% endif %}
+                    {% set raw_sec = (row.Sector_Strength or '') | string %}
+                    {% set sec = raw_sec.split('(')[0].strip() if '(' in raw_sec else '' %}
+                    <tr data-tab="{{ _tab.get(sig, 'hold') }}" data-sector="{{ sec }}">
+                        <td><strong>{{ row.Symbol }}</strong></td>
+                        <td>
+                            <span class="signal-badge badge-{{ _badge.get(sig, 'low') }}">
+                                {{ _label.get(sig, sig) }}
+                            </span>
+                        </td>
+                        <td>{{ "%.0f"|format((row.get('Adjusted_Score', row.get('Composite_Score', 0)) or 0) * 100) }}%</td>
+                        <td>${{ "%.2f"|format(row.Current_Price) }}</td>
+                        <td>{{ "%.1f"|format(row.RSI) if row.RSI else '—' }}</td>
+                        <td>
+                            {% if sig in ('HOLD', 'FILTERED_LOW_VOLUME') %}
+                                <span style="color:#ff3b30; font-size:0.85em;">↑ ${{ "%.2f"|format(row.Resistance_Level) if row.Resistance_Level else '—' }}</span>
+                            {% elif row.Target_Price %}
+                                ${{ "%.2f"|format(row.Target_Price) }}
+                            {% elif sig == 'BUY' %}
+                                <span style="color:#34c759; font-size:0.82em;">移动止盈<br><span style="color:#86868b;">不封顶</span></span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sig in ('HOLD', 'FILTERED_LOW_VOLUME') %}
+                                <span style="color:#34c759; font-size:0.85em;">↓ ${{ "%.2f"|format(row.Support_Level) if row.Support_Level else '—' }}</span>
+                            {% else %}
+                                <span class="negative">${{ "%.2f"|format(row.Stop_Loss) if row.Stop_Loss else '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.Risk_Reward_Ratio %}
+                                <span style="color:{% if row.Risk_Reward_Ratio >= 2 %}#34c759{% elif row.Risk_Reward_Ratio >= 1.5 %}#ff9500{% else %}#ff3b30{% endif %};font-weight:600;">
+                                    {{ "%.1f"|format(row.Risk_Reward_Ratio) }}x
+                                </span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="font-size:0.82em; color:#86868b; white-space:nowrap;">{{ sec or '—' }}</td>
+                        <td class="reason-cell" style="font-size:0.85em; max-width:220px; word-break:break-word;">
+                            {{ (row.Reasoning or '')[:100] }}{% if (row.Reasoning or '') | length > 100 %}…{% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% endif %}
+
+        </div>
+
+        <!-- AI external-factor confidence review (downward-only) -->
+        {% if ai_adjustments %}
+        <div class="section" style="border-left: 4px solid #af52de;">
+            <h2>🤖 AI外部因子复核
+                <span style="font-size:0.5em; font-weight:500; color:#af52de; background:rgba(175,82,222,0.1); border:1px solid rgba(175,82,222,0.3); border-radius:6px; padding:3px 10px; margin-left:8px; vertical-align:middle;">只降不升 · 0–30分</span>
+            </h2>
+            <div style="font-size:0.88em; color:#86868b; margin-bottom:12px;">
+                AI 基于新闻 / 财报临近 / 宏观事件等技术信号未计入的外部风险，对今日买入信号做置信度扣分；跌破 40 分门槛的信号降级为观望。
+            </div>
+            {% for sym, adj in ai_adjustments.items() %}
+            {% set _demoted = sym in ai_demoted %}
+            <div style="border:1px solid {{ '#ff3b30' if _demoted else '#af52de' }}33; border-left:4px solid {{ '#ff3b30' if _demoted else '#af52de' }}; border-radius:10px; padding:10px 16px; margin:8px 0;">
+                <strong>{{ sym }}</strong>：置信度 {{ adj.get('delta', 0) }} 分 —— {{ adj.get('reason', '') }}
+                <span style="float:right; font-weight:600; color:{{ '#ff3b30' if _demoted else '#34c759' }};">
+                    {{ '⛔ 已降级为观望' if _demoted else '仍为买入' }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Trade Setups -->
+        {% if trade_setups %}
+        <div class="section" style="border-left: 4px solid #007aff;">
+            <h2>🎯 交易计划</h2>
+            {% for setup in trade_setups %}
+            <div style="background:white; border-radius:12px; padding:24px; margin:16px 0; border:1px solid rgba(0,0,0,0.06); box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px; flex-wrap:wrap;">
+                    <span style="font-size:1.4em; font-weight:700; color:#1d1d1f;">{{ setup.symbol }}</span>
+                    {% if setup.watch_only %}
+                    <span class="signal-hold">观望</span>
+                    <span style="color:#86868b; font-size:13px;">置信度 {{ setup.confidence }}%</span>
+                    {% else %}
+                    <span class="signal-buy">入场机会</span>
+                    <span style="color:#86868b; font-size:13px;">置信度 {{ setup.confidence }}%</span>
+                    <span style="color:#86868b; font-size:13px;">建议仓位 {{ setup.position_size_pct | int }}%</span>
+                    {% endif %}
+                </div>
+                {% if setup.verdict %}
+                <div style="background:rgba(0,122,255,0.07); border-left:3px solid #007aff; border-radius:0 8px 8px 0; padding:10px 16px; margin-bottom:16px; font-size:0.95em; font-weight:600; color:#1d1d1f;">
+                    ⭐ {{ setup.verdict }}
+                </div>
+                {% endif %}
+                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                    <div style="background:#f5f5f7; border-radius:8px; padding:10px 16px; text-align:center; min-width:100px;">
+                        <div style="font-size:11px; color:#86868b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">入场价</div>
+                        <div style="font-size:1.2em; font-weight:700;">${{ "%.2f"|format(setup.price) }}</div>
+                    </div>
+                    <div style="background:#f0fdf4; border-radius:8px; padding:10px 16px; text-align:center; min-width:100px;">
+                        <div style="font-size:11px; color:#86868b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">目标价</div>
+                        <div style="font-size:1.2em; font-weight:700; color:#34c759;">{% if setup.target is not none %}${{ "%.2f"|format(setup.target) }}{% else %}移动止盈{% endif %}</div>
+                    </div>
+                    <div style="background:#fff5f5; border-radius:8px; padding:10px 16px; text-align:center; min-width:100px;">
+                        <div style="font-size:11px; color:#86868b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">止损价</div>
+                        <div style="font-size:1.2em; font-weight:700; color:#ff3b30;">${{ "%.2f"|format(setup.stop) }}</div>
+                    </div>
+                    <div style="background:#f0f4ff; border-radius:8px; padding:10px 16px; text-align:center; min-width:100px;">
+                        <div style="font-size:11px; color:#86868b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">盈亏比</div>
+                        <div style="font-size:1.2em; font-weight:700; color:#5856d6;">{% if setup.rr is not none and setup.rr == setup.rr %}{{ "%.1f"|format(setup.rr) }}x{% else %}—{% endif %}</div>
+                    </div>
+                </div>
+                {% if setup.text %}
+                <div class="analysis-text" style="white-space:pre-line; font-size:14px; line-height:1.7;">{{ setup.text }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- New Stock Opportunities -->
+        {% if stock_suggestions and 'error' not in stock_suggestions and (stock_suggestions.get('momentum_leaders') or stock_suggestions.get('volume_breakouts') or stock_suggestions.get('oversold_bounces')) %}
+        <div class="section" style="border-left-color: #28a745;">
+            <h2>🔍 新股机会</h2>
+            <p style="margin-top: 0; color: #666;">当前关注列表之外发现的新机会</p>
+
+            {% if stock_suggestions.get('scan_summary') %}
+            <p style="font-size: 0.9em; color: #666;">
+                已扫描 {{ stock_suggestions['scan_summary'].get('total_scanned', 0) }} 只股票 |
+                最后更新: {{ stock_suggestions['scan_summary'].get('timestamp', 'N/A') }}
+            </p>
+            {% endif %}
+
+            {% if stock_suggestions.get('momentum_leaders') %}
+            <h3>📈 动量领先股</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>行业</th>
+                        <th>价格</th>
+                        <th>动量</th>
+                        <th>RSI</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in stock_suggestions['momentum_leaders'][:5] %}
+                    <tr>
+                        <td><strong>{{ stock['symbol'] }}</strong></td>
+                        <td>{{ stock['name'] }}</td>
+                        <td>{{ stock['sector'] }}</td>
+                        <td>${{ "%.2f"|format(stock['price']) }}</td>
+                        <td class="positive">+{{ "%.1f"|format(stock['momentum_20d']) }}%</td>
+                        <td>{{ "%.0f"|format(stock['rsi']) }}</td>
+                        <td style="font-size: 0.9em;">{{ stock['reason'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            {% if stock_suggestions.get('volume_breakouts') %}
+            <h3>📊 成交量突破股</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>行业</th>
+                        <th>价格</th>
+                        <th>量比</th>
+                        <th>动量</th>
+                        <th>原因</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in stock_suggestions['volume_breakouts'][:5] %}
+                    <tr>
+                        <td><strong>{{ stock['symbol'] }}</strong></td>
+                        <td>{{ stock['name'] }}</td>
+                        <td>{{ stock['sector'] }}</td>
+                        <td>${{ "%.2f"|format(stock['price']) }}</td>
+                        <td class="positive">{{ "%.1f"|format(stock['volume_ratio']) }}x</td>
+                        <td class="positive">+{{ "%.1f"|format(stock['momentum_20d']) }}%</td>
+                        <td style="font-size: 0.9em;">{{ stock['reason'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            {% if stock_suggestions.get('oversold_bounces') %}
+            <h3>💎 超卖反弹候选股</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Name</th>
+                        <th>Sector</th>
+                        <th>Price</th>
+                        <th>RSI</th>
+                        <th>52W Position</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in stock_suggestions['oversold_bounces'][:5] %}
+                    <tr>
+                        <td><strong>{{ stock['symbol'] }}</strong></td>
+                        <td>{{ stock['name'] }}</td>
+                        <td>{{ stock['sector'] }}</td>
+                        <td>${{ "%.2f"|format(stock['price']) }}</td>
+                        <td class="negative">{{ "%.0f"|format(stock['rsi']) }}</td>
+                        <td>{{ "%.0f"|format(stock['week_range_position']) }}%</td>
+                        <td style="font-size: 0.9em;">{{ stock['reason'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ═══════════════ INDEX MARKET TIMING (SPY/QQQ) ═══════════════
+             One line: the rule (4–15% off the 52w high, trend intact, RSI ≤ 48,
+             not BEAR) is in the README; only today's verdict goes here. -->
+        {% if index_timing %}
+        <div class="section" style="border-left-color: #007aff; padding-top:14px; padding-bottom:14px;">
+            <strong>📈 大盘择时</strong>
+            {% for sym, st in index_timing.items() %}
+            {% set _icon = {'BUY_WINDOW': '🟢', 'WATCH': '🟡', 'TREND_BROKEN': '🔴'}.get(st.get('state', ''), '⚪') %}
+            <span style="margin-left:14px;">{{ _icon }} {{ sym }} {{ st.get('action', '观望') }}{% if st.get('drawdown_pct') is not none %}（距高点 -{{ st.get('drawdown_pct') }}%）{% endif %}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ═══════════════ ADVICE-FOLLOWING ACCOUNT ═══════════════ -->
+        {% if quant_summary and 'error' not in quant_summary %}
+        <div class="section" style="border-left-color: #5856d6;">
+            <h2>💰 如果我照建议做了
+                <span style="font-size:0.5em; font-weight:500; color:#5856d6; background:rgba(88,86,214,0.1); border:1px solid rgba(88,86,214,0.3); border-radius:6px; padding:3px 10px; margin-left:8px; vertical-align:middle;">建议追踪 · 模拟问责</span>
+            </h2>
+
+            <!-- What this account is -->
+            <div style="background:rgba(88,86,214,0.06); border:1px solid rgba(88,86,214,0.25); border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:0.88em; color:#1d1d1f; line-height:1.6;">
+                此账户回答一个问题：<strong>如果我从一开始就照系统每日建议买卖，现在赚还是亏？</strong>
+                起始 <strong>${{ "{:,.0f}".format(quant_summary.get('initial_capital',2000)) }}</strong>，
+                先扣除你真实持仓的成本，剩余现金只跟系统的 BUY 信号买入，并按系统给的止损/止盈自动平仓。
+                {% set incd = quant_summary.get('inception_date') %}
+                {% if incd %}<br><span style="color:#86868b;">建仓起始日：{{ incd }}</span>{% endif %}
+            </div>
+
+            <!-- KPI strip -->
+            {% set tr = quant_summary.get('total_return_pct',0) %}
+            {% set alpha = quant_summary.get('alpha_pct',0) %}
+            {% set spy_r = quant_summary.get('spy_return_pct',0) %}
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-bottom:20px;">
+                <div style="background:#f5f5f7; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="font-size:1.4em; font-weight:700; color:#1d1d1f;">
+                        ${{ "{:,.0f}".format(quant_summary.get('nav',0)) }}
+                    </div>
+                    <div style="font-size:0.8em; color:#86868b; margin-top:4px;">账户总值</div>
+                </div>
+                <div style="background:#f5f5f7; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="font-size:1.4em; font-weight:700; color:{{ '#34c759' if tr >= 0 else '#ff3b30' }};">
+                        {{ '+' if tr >= 0 else '' }}{{ tr }}%
+                    </div>
+                    <div style="font-size:0.8em; color:#86868b; margin-top:4px;">总收益率</div>
+                </div>
+                <div style="background:#f5f5f7; border-radius:12px; padding:14px; text-align:center;">
+                    {% set rp = quant_summary.get('realized_pnl',0) %}
+                    <div style="font-size:1.4em; font-weight:700; color:{{ '#34c759' if rp >= 0 else '#ff3b30' }};">
+                        {{ '+' if rp >= 0 else '-' }}${{ "{:,.0f}".format(rp|abs) }}
+                    </div>
+                    <div style="font-size:0.8em; color:#86868b; margin-top:4px;">已实现盈亏</div>
+                </div>
+                <div style="background:#f5f5f7; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="font-size:1.4em; font-weight:700; color:{{ '#34c759' if alpha >= 0 else '#ff3b30' }};">
+                        {{ '+' if alpha >= 0 else '' }}{{ alpha }}%
+                    </div>
+                    <div style="font-size:0.8em; color:#86868b; margin-top:4px;">跑赢SPY (α)</div>
+                </div>
+                <div style="background:#f5f5f7; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="font-size:1.4em; font-weight:700; color:#1d1d1f;">
+                        ${{ "{:,.0f}".format(quant_summary.get('cash',0)) }}
+                    </div>
+                    <div style="font-size:0.8em; color:#86868b; margin-top:4px;">现金</div>
+                </div>
+                {% if quant_summary.get('win_rate_pct') is not none %}
+                <div style="background:#f5f5f7; border-radius:12px; padding:14px; text-align:center;">
+                    <div style="font-size:1.4em; font-weight:700; color:#1d1d1f;">
+                        {{ quant_summary.get('win_rate_pct') }}%
+                    </div>
+                    <div style="font-size:0.8em; color:#86868b; margin-top:4px;">胜率 ({{ quant_summary.get('num_closed',0) }}笔)</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Current holdings (with stop/target) -->
+            {% if quant_summary.get('positions') %}
+            <h3 style="margin-top:0;">当前持仓</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th><th>来源</th><th>股数</th><th>成本</th>
+                        <th>现价</th><th>市值</th><th>止损/止盈</th><th>盈亏%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pos in quant_summary['positions'] %}
+                    <tr>
+                        <td><strong>{{ pos.symbol }}</strong></td>
+                        <td style="font-size:0.85em; color:#86868b;">{{ '原持仓' if pos.source == 'seed' else '系统建议' }}</td>
+                        <td>{{ pos.shares }}</td>
+                        <td>${{ pos.avg_cost }}</td>
+                        <td>${{ pos.current_price }}</td>
+                        <td>${{ "{:,.0f}".format(pos.market_value) }}</td>
+                        <td style="font-size:0.85em;">{{ ('$' ~ pos.stop) if pos.stop else '—' }} / {{ ('$' ~ pos.target) if pos.target else '—' }}</td>
+                        <td style="color:{{ '#34c759' if pos.pnl_pct >= 0 else '#ff3b30' }}; font-weight:600;">
+                            {{ '+' if pos.pnl_pct >= 0 else '' }}{{ pos.pnl_pct }}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            <!-- Positions closed today — a stop-out used to surface only as a
+                 row in the historical table the next morning. -->
+            {% if quant_summary.get('closed_today') %}
+            <div style="background:rgba(255,149,0,0.07); border:1px solid rgba(255,149,0,0.3); border-radius:10px; padding:14px 18px; margin-top:14px;">
+                <div style="font-weight:700; color:#ff9500; margin-bottom:8px;">⚡ 今日平仓</div>
+                {% for t in quant_summary['closed_today'] %}
+                <div style="font-size:0.9em; line-height:1.8; color:#1d1d1f;">
+                    <strong>{{ t.symbol }}</strong> ${{ t.entry }} → ${{ t.exit }}（{{ t.reason }}）
+                    <span style="color:{{ '#34c759' if t.pnl >= 0 else '#ff3b30' }}; font-weight:600;">
+                        {{ '+' if t.pnl >= 0 else '' }}${{ t.pnl }}（{{ '+' if t.pnl_pct >= 0 else '' }}{{ t.pnl_pct }}%）
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Closed round-trips -->
+            {% if quant_summary.get('closed_trades') %}
+            <h3>最近平仓</h3>
+            <table>
+                <thead>
+                    <tr><th>代码</th><th>买入</th><th>卖出</th><th>原因</th><th>持有</th><th>盈亏</th></tr>
+                </thead>
+                <tbody>
+                    {% for t in (quant_summary['closed_trades']|reverse|list)[:3] %}
+                    <tr>
+                        <td><strong>{{ t.symbol }}</strong></td>
+                        <td>${{ t.entry }}</td>
+                        <td>${{ t.exit }}</td>
+                        <td style="font-size:0.85em;">{{ t.reason }}</td>
+                        <td style="font-size:0.85em; color:#86868b;">{{ t.opened }}→{{ t.closed }}</td>
+                        <td style="color:{{ '#34c759' if t.pnl >= 0 else '#ff3b30' }}; font-weight:600;">
+                            {{ '+' if t.pnl >= 0 else '-' }}${{ "%.2f"|format(t.pnl|abs) }}（{{ "%+.2f"|format(t.pnl_pct) }}%）
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            <!-- Verdict line -->
+            <div style="background:{{ 'rgba(52,199,89,0.06)' if alpha >= 0 else 'rgba(255,59,48,0.05)' }}; border:1px solid {{ 'rgba(52,199,89,0.25)' if alpha >= 0 else 'rgba(255,59,48,0.2)' }}; border-radius:10px; padding:14px 18px; margin-top:12px; font-size:0.9em; color:#1d1d1f; line-height:1.7;">
+                {% if alpha >= 0 %}
+                ✅ <strong style="color:#34c759;">照建议做跑赢SPY基准 +{{ alpha }}%</strong>
+                {% else %}
+                ⚠️ <strong style="color:#ff3b30;">照建议做跑输SPY基准 {{ alpha }}%</strong>
+                {% endif %}
+                — 同期 SPY <strong>{{ '+' if spy_r >= 0 else '' }}{{ spy_r }}%</strong>，本账户 <strong>{{ '+' if tr >= 0 else '' }}{{ tr }}%</strong>。
+                未实现浮盈亏 <strong>{{ '+' if quant_summary.get('unrealized_pnl',0) >= 0 else '' }}${{ quant_summary.get('unrealized_pnl',0) }}</strong>。
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>报告由股票分析系统生成 | {{ report_date }} {{ report_time }}</p>
+            <p><em>本报告仅供参考，不构成投资建议。</em></p>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type) {
+            const status = document.getElementById('refresh-status');
+            status.textContent = message;
+            status.className = 'refresh-status ' + type;
+            status.style.display = 'block';
+            if (type !== 'loading') {
+                setTimeout(() => { status.style.display = 'none'; }, 5000);
+            }
+        }
+
+        async function refreshReport() {
+            const btn = document.getElementById('refresh-btn');
+            const progressOverlay = document.getElementById('progress-overlay');
+
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            // Show progress overlay
+            progressOverlay.classList.add('active');
+
+            try {
+                // Start the refresh
+                const response = await fetch('http://localhost:8765/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Update progress bar
+                        updateProgressBar(0, 'Starting analysis...', data.estimated_time);
+
+                        // Start polling for progress
+                        pollProgress();
+                    } else {
+                        progressOverlay.classList.remove('active');
+                        showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+                        btn.classList.remove('loading');
+                        btn.disabled = false;
+                    }
+                } else {
+                    throw new Error('Server returned ' + response.status);
+                }
+            } catch (error) {
+                progressOverlay.classList.remove('active');
+                showStatus('Server not running. Please run: python3 web_server.py', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        function pollProgress() {
+            const progressOverlay = document.getElementById('progress-overlay');
+            const startTime = Date.now();
+
+            const progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('http://localhost:8765/progress');
+                    const progress = await response.json();
+
+                    if (progress.status === 'completed') {
+                        clearInterval(progressInterval);
+                        updateProgressBar(100, 'Analysis complete!', 0);
+                        setTimeout(() => {
+                            progressOverlay.classList.remove('active');
+                            window.location.reload();
+                        }, 1500);
+                    } else if (progress.status === 'error') {
+                        clearInterval(progressInterval);
+                        progressOverlay.classList.remove('active');
+                        showStatus('Error: ' + progress.current_step, 'error');
+                        document.getElementById('refresh-btn').classList.remove('loading');
+                        document.getElementById('refresh-btn').disabled = false;
+                    } else if (progress.status === 'running') {
+                        const percent = Math.round((progress.step / progress.total_steps) * 100);
+                        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                        const estimatedTotal = progress.estimated_time || 420;
+                        const remaining = Math.max(0, estimatedTotal - elapsed);
+
+                        updateProgressBar(percent, progress.current_step, remaining);
+                    }
+                } catch (error) {
+                    clearInterval(progressInterval);
+                    progressOverlay.classList.remove('active');
+                    showStatus('Lost connection to server', 'error');
+                    document.getElementById('refresh-btn').classList.remove('loading');
+                    document.getElementById('refresh-btn').disabled = false;
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+
+        function updateProgressBar(percent, stepText, remainingSeconds) {
+            document.getElementById('progress-percentage').textContent = percent + '%';
+            document.getElementById('progress-bar-fill').style.width = percent + '%';
+            document.getElementById('progress-step').textContent = stepText;
+
+            if (remainingSeconds !== undefined) {
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+                const timeText = minutes > 0
+                    ? `Remaining: ~${minutes}m ${seconds}s`
+                    : seconds > 0
+                        ? `Remaining: ~${seconds}s`
+                        : 'Almost done...';
+                document.getElementById('progress-time').textContent = timeText;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Optional: Check server status for refresh functionality
+            fetch('http://localhost:8765/status')
+                .then(r => r.json())
+                .then(data => {
+                    console.log('Server status:', data);
+                })
+                .catch(() => {
+                    // Local server not running - refresh requires server
+                });
+        });
+    </script>
+</body>
+</html>

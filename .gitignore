@@ -1,0 +1,79 @@
+# Environment variables and secrets
+.env
+
+# Personal data: holdings, trade ledgers, signal DBs, generated reports
+data/*
+!data/portfolio_example.csv
+Stock Market Daily Report/
+no_report.html
+failed_notifications.log
+
+# Local Claude Code settings (contain absolute paths)
+.claude/
+
+# Logs (may contain sensitive information)
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Progress tracking
+.progress.json
+
+# Data pipeline cache and Parquet storage
+cache/
+data/ohlcv/
+
+# Keep example files
+!.env.example
+!data/portfolio_example.csv
